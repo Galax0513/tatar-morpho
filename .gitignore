@@ -1,0 +1,7 @@
+fst/tatar.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.idea/
+.venv/
+.DS_Store
