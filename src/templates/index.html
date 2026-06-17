@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Морфоанализатор татарского языка</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1c2330; 
+      --paper: #f3f5f8;
+      --card: #ffffff;
+      --accent: #2f5fd0;
+      --accent-deep: #1f47a8;
+      --accent-soft: #e4ebfb;
+      --muted: #6b7280; 
+      --line: #dde2ea;
+      --root-bg: #eef1f6; 
+      --affix-bg: #e7ecf6;
+      --affix-ink: #3a4a73;
+      --back: #b5482e;
+      --front: #6a4ea8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--paper); color: var(--ink);
+      font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 700px; margin: 0 auto; padding: 56px 20px 90px; }
+
+    header { margin-bottom: 30px; }
+    .eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 10px;
+    }
+    h1 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 38px; line-height: 1.1; margin: 0 0 10px; font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .sub { color: var(--muted); font-size: 16px; margin: 0; max-width: 52ch; }
+
+    /* Переключатель режимов */
+    .modes { display: flex; gap: 8px; margin-bottom: 16px; }
+    .mode-btn {
+      flex: 1; text-align: center; padding: 11px 14px; font-size: 15px;
+      border: 1.5px solid var(--line); border-radius: 11px;
+      background: var(--card); color: var(--muted); text-decoration: none;
+      font-weight: 600; transition: all 0.15s ease;
+    }
+    .mode-btn:hover { border-color: var(--accent); color: var(--accent-deep); }
+    .mode-btn.active {
+      border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep);
+    }
+    .mode-hint { font-size: 13.5px; color: var(--muted); margin: 0 0 18px; }
+    .mode-hint code, .hint code {
+      font-family: "IBM Plex Mono", monospace; font-size: 12.5px;
+      background: #ece5d7; padding: 2px 6px; border-radius: 5px;
+    }
+
+    form { display: flex; gap: 10px; margin-bottom: 26px; }
+    input[type=text] {
+      flex: 1; padding: 15px 17px; font-size: 17px;
+      font-family: "IBM Plex Sans", sans-serif;
+      border: 1.5px solid var(--line); border-radius: 12px;
+      background: var(--card); color: var(--ink); transition: all 0.15s ease;
+    }
+    input[type=text]:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+    button {
+      padding: 0 24px; font-size: 16px; font-weight: 600; border: none;
+      border-radius: 12px; cursor: pointer; background: var(--accent); color: #fff;
+      font-family: "IBM Plex Sans", sans-serif; transition: background 0.15s ease;
+    }
+    button:hover { background: var(--accent-deep); }
+
+    .card {
+      background: var(--card); border: 1.5px solid var(--line);
+      border-radius: 14px; padding: 22px 24px; margin-bottom: 14px;
+      animation: rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    }
+    .card:nth-child(2) { animation-delay: 0.05s; }
+    .card:nth-child(3) { animation-delay: 0.1s; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .card { animation: none; }
+    }
+
+    .variant-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* Морфемное членение - главный визуальный элемент */
+    .morphemes {
+      display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px;
+      margin-bottom: 18px; font-family: "Space Grotesk", sans-serif;
+    }
+    .morph {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 14px 6px; border-radius: 10px;
+    }
+    .morph .text { font-size: 30px; font-weight: 600; letter-spacing: 0.01em; }
+    .morph .role {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+      margin-top: 4px; color: var(--muted);
+    }
+    .morph.root { background: var(--root-bg); }
+    .morph.affix { background: var(--affix-bg); }
+    .morph.affix .text { color: var(--affix-ink); }
+    .morph .plus {
+      align-self: center; color: var(--muted); font-size: 22px;
+      font-family: "IBM Plex Sans", sans-serif; padding: 0 2px;
+    }
+    /* Подсветка гласных по ряду (сингармонизм) */
+    .v-back { color: var(--back); }
+    .v-front { color: var(--front); }
+
+    .lemma { font-size: 13.5px; color: var(--muted); margin-bottom: 2px; }
+    .lemma b { color: var(--ink); font-weight: 600; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .tag {
+      background: #f0ebe0; border-radius: 999px; padding: 5px 13px; font-size: 14px;
+    }
+    .tag .code { font-family: "IBM Plex Mono", monospace; font-weight: 600; color: var(--accent); }
+    .tag .desc { color: var(--muted); }
+
+    .form-out {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 30px; font-weight: 600; color: var(--ink);
+    }
+
+    .legend {
+      display: flex; gap: 18px; flex-wrap: wrap; margin: 4px 0 22px;
+      font-size: 13px; color: var(--muted);
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+    .empty {
+      background: var(--accent-soft); border-radius: 14px;
+      padding: 18px 20px; color: var(--accent-deep); font-size: 15px;
+    }
+    .hint { color: var(--muted); font-size: 14px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">Татарская морфология</div>
+      <h1>Морфологический анализатор</h1>
+      <p class="sub">Разбор слова на морфемы и обратное построение
+        формы по грамматическому описанию.</p>
+    </header>
+
+    <div class="modes">
+      <a class="mode-btn {{ 'active' if mode == 'analyze' else '' }}"
+         href="/?mode=analyze">Разобрать слово</a>
+      <a class="mode-btn {{ 'active' if mode == 'generate' else '' }}"
+         href="/?mode=generate">Построить форму</a>
+    </div>
+
+    {% if mode == 'generate' %}
+      <p class="mode-hint">Введите разбор, например
+        <code>кил+V+Past+3Sg</code> - получите словоформу.</p>
+    {% else %}
+      <p class="mode-hint">Введите словоформу, например
+        <code>китапларда</code> - получите членение и разбор.</p>
+    {% endif %}
+
+    <form method="get" action="/">
+      <input type="hidden" name="mode" value="{{ mode }}">
+      <input type="text" name="word" value="{{ word }}"
+             placeholder="{{ 'кил+V+Past+3Sg' if mode == 'generate' else 'например, китапларда' }}"
+             autofocus>
+      <button type="submit">
+        {{ 'Построить' if mode == 'generate' else 'Разобрать' }}
+      </button>
+    </form>
+
+    {# --- Режим разбора --- #}
+    {% if analyses is not none %}
+      {% if analyses %}
+        <div class="legend">
+          <span><i class="swatch" style="background: var(--back)"></i> твёрдый ряд гласных</span>
+          <span><i class="swatch" style="background: var(--front)"></i> мягкий ряд гласных</span>
+        </div>
+        {% for r in analyses %}
+          <div class="card">
+            {% if analyses|length > 1 %}
+              <div class="variant-label">вариант {{ loop.index }}</div>
+            {% endif %}
+
+            <div class="morphemes">
+              <div class="morph root">
+                <span class="text">
+                  {%- for ch, cls in r.root_marked -%}
+                    <span class="{{ 'v-' + cls if cls else '' }}">{{ ch }}</span>
+                  {%- endfor -%}
+                </span>
+                <span class="role">корень</span>
+              </div>
+              {% if r.has_affix %}
+                <span class="plus">+</span>
+                <div class="morph affix">
+                  <span class="text">
+                    {%- for ch, cls in r.affix_marked -%}
+                      <span class="{{ 'v-' + cls if cls else '' }}">{{ ch }}</span>
+                    {%- endfor -%}
+                  </span>
+                  <span class="role">аффиксы</span>
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="lemma">начальная форма: <b>{{ r.lemma }}</b></div>
+            <div class="tags">
+              {% for code, desc in r.tags %}
+                <span class="tag">
+                  <span class="code">{{ code }}</span>
+                  <span class="desc">— {{ desc }}</span>
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">
+          Слово «{{ word }}» не распознано. Возможно, его пока нет
+          в словаре или форма не поддерживается.
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {# --- Режим генерации --- #}
+    {% if forms is not none %}
+      {% if forms %}
+        {% for f in forms %}
+          <div class="card">
+            <div class="lemma">словоформа:</div>
+            <div class="form-out">{{ f }}</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">
+          По описанию «{{ word }}» не удалось построить форму.
+          Проверьте теги, например: <code>китап+N+Pl+Loc</code>.
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {% if mode == 'generate' %}
+      <p class="hint">
+        Примеры: <code>китап+N+Pl+Loc</code>, <code>өстәл+N+Abl</code>,
+        <code>бар+V+Neg+Past+3Sg</code>.
+      </p>
+    {% else %}
+      <p class="hint">
+        Попробуйте: <code>китапларда</code>, <code>өстәлдә</code>,
+        <code>килде</code>, <code>бармады</code>. Регистр не важен.
+      </p>
+    {% endif %}
+  </div>
+</body>
+</html>
